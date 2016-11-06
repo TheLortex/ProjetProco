@@ -25,7 +25,7 @@ ull bininput() {
   if ((int) str.size() >= taille)
     return n;
   else
-    return n << taille - (int)str.size();
+    return n << (taille - (int)str.size());
 }
 
 template<int taille>
@@ -42,6 +42,11 @@ ull* readromfile(string addr) {
   entree.seekg (0, entree.end);
   int size = entree.tellg();
   entree.seekg (0, entree.beg);
+
+  if (size <= 0)
+    return 0;
+
+    cout << size;
 
   char* buf = new char[size];
   ull* buffout = new ull[size/8];
@@ -68,7 +73,7 @@ inline ull read(ull* ram, const unsigned char ws, ull ra) { // Taille < 64
   const char wpc = 64/ws;
 
   ull position = ra/wpc;
-  char index = ra%wpc;
+  char index = ws*(ra%wpc);
 
   return (ram[position] & (((1ULL << ws) - 1) << index)) >> index;
 }
@@ -77,7 +82,7 @@ inline ull read(ull* ram, const unsigned char ws, ull ra) { // Taille < 64
 inline void ramwrite(ull* ram, const unsigned char ws, bool write_enable, ull wa, ull data) {
   const char wpc = 64/ws;
   ull position = wa/wpc;
-  char index = wa%wpc;
+  char index = ws* (wa%wpc);
   if(write_enable) {
     ram[position] &= maskbit(index, ws);
     ram[position] |= (data << index);

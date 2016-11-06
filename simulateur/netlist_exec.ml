@@ -119,7 +119,7 @@ let convert p niter romfile =
     output_string f ("ull r_"^(soi p)^"(0);\n")
   done;
   output_string f ("ull* ram = new ull["^(soi (!ramsize/8+1))^"]; \n");
-  output_string f ("ull* rom");
+  output_string f ("ull* rom;\n");
 
   (* Écriture de la fonction cycle et de ses paramètres*)
   output_string f "void cycle(int no) {\n";
@@ -154,7 +154,8 @@ int main() {\n
   (* chaque fois l'entrée *)
   output_string f "cycle(i);}\n
   delete ram;
-  delete rom;}";
+  if (rom != 0)
+    delete rom;}";
 
   flush f;
   close_out f

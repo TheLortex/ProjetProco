@@ -8,9 +8,10 @@ let ramop = ref([])
 
 module Smap = Map.Make(String)
 type vardata = {pos: int; ind: int; siz : int}
-type vars = {mutable vars : vardata Smap.t} (*position puis *)
+type vars = {mutable vars : vardata Smap.t}
+(* Les variables de la netlist sont stockées sont des entiers 64 bits, on note leur position et leur taille grâce au type 'vars'*)
 
-(*indice puis taille*)
+
 let i = ref(0) and j = ref(0) and k = ref(0)
 let varinfo = {vars = Smap.empty}
 let i' = ref(0) and j' = ref(0) and k' = ref(0)
@@ -41,6 +42,7 @@ let get_size = function
   | Aconst(VBit _) -> 1
   | Aconst(VBitArray n) -> Array.length n
 
+(* Chaque instruction de netlist est traduite par une ligne de c++ *)
 let translate_expr = function
   | Earg(arg) -> p (print_arg arg)
   | Ereg(ident) -> let t = Smap.find ident reginfo.vars in
@@ -93,20 +95,18 @@ let print_line f (i,expr) =
   let d = Smap.find i varinfo.vars in
   output_string f ("b_"^(soi d.pos)^" &= maskbit("^(soi d.ind)^","^(soi
   d.siz)^");
-b_"^(soi d.pos)^" |= ("^(translate_expr expr)^" << "^(soi d.ind)^");
-  //"^(i)^" \n\n")
-
+  b_"^(soi d.pos)^" |= ("^(translate_expr expr)^" << "^(soi d.ind)^"); //"^(i)^" \n\n")
 
 let update_reg f x dreg =
   output_string f ("r_"^(soi dreg.pos)^" &= maskbit("^(soi dreg.ind)^","^(soi
-  dreg.siz)^");\n
-r_"^(soi dreg.pos)^" |= ("^(translate_expr (Earg (Avar x)))^" << "^(soi dreg.ind)^");\n")
+  dreg.siz)^");
+  r_"^(soi dreg.pos)^" |= ("^(translate_expr (Earg (Avar x)))^" << "^(soi dreg.ind)^");\n\n")
 
-
-let update_ram f (Eram(r,w,_,we,wa,d)) = output_string f
+let update_ram f = function
+  | Eram(r,w,_,we,wa,d) -> output_string f
   ("ramwrite(ram,"^(soi w)^","^(print_arg we)^","^(print_arg
   wa)^","^(print_arg d)^"); \n")
-
+  | _ -> ()
 
 let convert name p niter romfile =
   Printf.printf  "Traduction de la netlist en c++.. %!";
@@ -124,21 +124,21 @@ let convert name p niter romfile =
   output_string f ("ull* ram = new ull["^(soi (!ramsize/8+1))^"]; \n");
   output_string f ("ull* rom;\n");
 
-  (* Écriture de la fonction cycle et de ses paramètres*)
+  (* Écriture de la fonction cycle et des paramètres en entrée. *)
   output_string f "void cycle(int no) {\n";
 
   List.iter (fun x -> output_string f ("ull "^x^";\n")) p.p_inputs;
   List.iter (fun x -> output_string f ("cout << no << \": "^x^" ? \"; "^x^"=bininput<"^(soi(get_size(Avar x)))^">();\n")) p.p_inputs;
 
-
+  (* Définition des variables locales *)
   for p=0 to !i do
     output_string f ("ull b_"^(soi p)^"(0);\n")
   done;
 
+  (* Ecriture des entrées dans les variables locales. *)
   List.iter (fun x -> let d = Smap.find x varinfo.vars in
-    (output_string f ("b_"^(soi d.pos)^" &= maskbit("^(soi
-  d.ind)^","^(soi d.siz)^");\n
-b_"^(soi d.pos)^" |= ("^x^" << "^(soi d.ind)^");\n"))) p.p_inputs;
+    (output_string f ("b_"^(soi d.pos)^" &= maskbit("^(soi d.ind)^","^(soi d.siz)^");\n b_"^(soi d.pos)^" |= ("^x^" << "^(soi d.ind)^");\n")))
+    p.p_inputs;
   (* Simulation de la netlist ligne par ligne *)
   List.iter (print_line f) p.p_eqs;
   (* Sauvegarde des registres *)
@@ -148,6 +148,7 @@ b_"^(soi d.pos)^" |= ("^x^" << "^(soi d.ind)^");\n"))) p.p_inputs;
   List.iter (fun x -> (output_string f ("cout << no << \": "^x^":\";
     binoutput<"^(soi (get_size(Avar x)))^">("^(print_arg (Avar x))^"); \n"))) p.p_outputs;
 
+(* Fin de la fonction cycle et début du main par l'initialisation de la ROM à partir d'un fichier.*)
   output_string f ("\n return;\n}\n
 int main() {\n
   rom = readromfile(\""^romfile^"\"); \n

@@ -20,7 +20,7 @@ Netlist_exec.convert cname
       match res with
         | WEXITED i when i = 0 ->
           Printf.printf "OK!\nExécution de la netlist.. \n%!";
-          Unix.execv ("./simulator_"^cname) [||];
+          let _ = Unix.system ("./simulator_"^cname) in
           exit 0
         | _ -> Printf.printf "Problème à la compilation."; exit 1
 with

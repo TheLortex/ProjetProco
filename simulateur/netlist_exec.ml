@@ -44,11 +44,12 @@ let translate_expr = function
   | Ebinop(Or,a1,a2) -> "("^(print_arg a1)^"|"^(print_arg a2)^")"
   | Ebinop(Xor,a1,a2) -> "("^(print_arg a1)^"^"^(print_arg a2)^")"
   | Ebinop(And,a1,a2) -> "("^(print_arg a1)^"&"^(print_arg a2)^")"
-  | Ebinop(Nand,a1,a2) -> "(!("^(print_arg a1)^"&"^(print_arg a2)^"))"
-  | Emux(sel,a1,a2) -> "(ok("^(print_arg sel)^") ? "^(print_arg a1)^" : "^(print_arg a2)^"})"
+  | Ebinop(Nand,a1,a2) -> "((~("^(print_arg a1)^"&"^(print_arg a2)^"))&((1ULL << "^(soi (get_size
+							      a1))^")-1))"
+  | Emux(sel,a1,a2) -> "("^(print_arg sel)^"!=0) ? "^(print_arg a1)^" : "^(print_arg a2)^"})"
   | Econcat(a1,a2) ->
      let s2 = get_size a2 in
-     ("((1 << "^(soi s2)^")*("^(print_arg a1)^") + ("^(print_arg a2)^"))")
+     ("(("^(print_arg a1)^" << "^(soi s2)^") + ("^(print_arg a2)^"))")
   | Eslice(i1,i2,arg) -> (* a ameliorer *)
      "(select("^(print_arg arg)^","^(soi (i2-i1+1))^","^(soi i1)^"))"
   | Eselect(i, arg) -> "(select("^(print_arg arg)^",1,"^(soi i)^"))"

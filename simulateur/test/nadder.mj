@@ -8,12 +8,12 @@ adder<n>(a:[n], b:[n], c_in) = (o:[n], c_out) where
     o = [];
     c_out = 0
   else
-    (s_n1, c_n1) = adder<n-1>(a[..n-2], b[..n-2], c_in);
-    (s_n, c_out) = fulladder(a[n-1], b[n-1], c_n1);
+    (s_n1, c_n1) = adder<n-1>(a[1..], b[1..], c_in);
+    (s_n, c_out) = fulladder(a[0], b[0], c_n1);
     o = s_n . s_n1
   end if
 end where
 
-main(a:[32], b:[32]) = (o:[32], c) where
-  (o, c) = adder<32>(a,b,0)
+main(a:[16], b:[16]) = (o:[16], c) where
+  (o, c) = adder<16>(a,b,0)
 end where

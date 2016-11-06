@@ -2,10 +2,11 @@
 #include <climits>
 #include <iostream>
 #include <string>
+#include <cstdint>
 
 using namespace std;
 
-typedef unsigned long long int ull;
+typedef uint64_t ull;
 
 template<int taille>
 ull bininput() {
@@ -13,16 +14,25 @@ ull bininput() {
   cin >> str;
   ull n = 0;
 
-  for(int i=0;i<str.size();i++) {
-    n = 2*n + (str[i] == '1' ? 1 : 0);
+
+
+  for(int i=0;i<min(taille,(int)str.size());i++) {
+    n += (str[i] == '1' ? 1 : 0)*(1ULL << i);
   }
-  return n;
+
+  if ((int) str.size() >= taille)
+    return n;
+  else
+    return n << taille - (int)str.size();
 }
 
 template<int taille>
 void binoutput(ull val) {
   bitset<taille> res(val);
-  cout << res << endl;
+  for(int i=taille-1; i>=0;i--) {
+    cout << res[i];
+  }
+  cout << endl;
 }
 
 
@@ -31,16 +41,16 @@ inline ull maskbit(const int ind, const int taille) {
 }
 
 inline ull select(ull data,  const int taille,const int ind) {
-  const ull masque = ((1ULL << taille) - 1) << ind; 
+  const ull masque = ((1ULL << taille) - 1) << ind;
   return ((data & masque) >> ind);
 }
 
 inline ull ramread(ull* ram, const unsigned char ws, ull ra) { // Taille < 64
   const char wpc = 64/ws;
-  
-  ull position = ra/wpc; 
+
+  ull position = ra/wpc;
   char index = ra%wpc;
-  
+
   return (ram[position] & (((1ULL << ws) - 1) << index)) >> index;
 }
 

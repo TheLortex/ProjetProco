@@ -16,7 +16,7 @@ Netlist_exec.convert cname
         (if (Array.length Sys.argv >= 4) then Sys.argv.(3) else "");
 
       Printf.printf "Compilation du programme.. %!";
-      let res = Unix.system ("g++ -std=c++0x -o simulator_"^cname^" simulator_"^cname^".cpp") in
+      let res = Unix.system ("g++ -std=c++0x -O3 -o simulator_"^cname^" simulator_"^cname^".cpp") in
       match res with
         | WEXITED i when i = 0 ->
           Printf.printf "OK!\nExécution de la netlist.. \n%!";

@@ -38,7 +38,7 @@ void binoutput(ull val) {
 }
 
 ull* readromfile(string addr) {
-  ifstream entree("./mem.bin", fstream::binary);
+  ifstream entree(addr, fstream::binary);
   entree.seekg (0, entree.end);
   int size = entree.tellg();
   entree.seekg (0, entree.beg);

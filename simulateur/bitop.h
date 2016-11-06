@@ -31,7 +31,7 @@ ull bininput() {
 template<int taille>
 void binoutput(ull val) {
   bitset<taille> res(val);
-  for(int i=taille-1; i>=0;i--) {
+  for(int i=0; i<taille;i++) {
     cout << res[i];
   }
   cout << endl;

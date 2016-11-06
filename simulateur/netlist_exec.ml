@@ -1,8 +1,5 @@
 open Netlist_ast
-open Graph
-open Netlist
 open Format
-open Scheduler
 
 let soi = string_of_int
 
@@ -24,10 +21,19 @@ let to_number = function
   | VBitArray barray -> Array.fold_right (fun b x -> 2*x + (if b then
       1 else 0)) barray 0
 
+
+let p str = "("^str^")"
+let select var len ind =
+  "select("^var^","^(soi len)^","^(soi ind)^")"
+let reg i =
+  "r_"^(soi i)
+let var i =
+  "b_"^(soi i)
+
 let print_arg = function
   | Avar ident ->
      let t = Smap.find ident varinfo.vars in
-     "(select(b_"^(soi t.pos)^","^(soi (t.siz))^","^(soi t.ind)^"))"
+      p (select (var t.pos) t.siz t.ind)
   | Aconst(x) -> (soi (to_number x))^"ULL"
 
 let get_size = function
@@ -36,9 +42,9 @@ let get_size = function
   | Aconst(VBitArray n) -> Array.length n
 
 let translate_expr = function
-  | Earg(arg) -> "("^(print_arg arg)^")"
+  | Earg(arg) -> p (print_arg arg)
   | Ereg(ident) -> let t = Smap.find ident reginfo.vars in
-     "(select(r_"^(soi t.pos)^","^(soi (t.siz))^","^(soi t.ind)^"))"
+     p (select (reg t.pos) t.siz t.ind)
   | Enot(arg) -> "((~"^(print_arg arg)^")&((1ULL << "^(soi (get_size
 							      arg))^")-1))"
   | Ebinop(Or,a1,a2) -> "("^(print_arg a1)^"|"^(print_arg a2)^")"
@@ -46,13 +52,12 @@ let translate_expr = function
   | Ebinop(And,a1,a2) -> "("^(print_arg a1)^"&"^(print_arg a2)^")"
   | Ebinop(Nand,a1,a2) -> "((~("^(print_arg a1)^"&"^(print_arg a2)^"))&((1ULL << "^(soi (get_size
 							      a1))^")-1))"
-  | Emux(sel,a1,a2) -> "("^(print_arg sel)^"!=0) ? "^(print_arg a1)^" : "^(print_arg a2)^"})"
+  | Emux(sel,a1,a2) -> "(("^(print_arg sel)^"!=0) ? "^(print_arg a2)^" : "^(print_arg a1)^")"
   | Econcat(a1,a2) ->
-     let s2 = get_size a2 in
-     ("(("^(print_arg a1)^" << "^(soi s2)^") + ("^(print_arg a2)^"))")
-  | Eslice(i1,i2,arg) -> (* a ameliorer *)
-     "(select("^(print_arg arg)^","^(soi (i2-i1+1))^","^(soi i1)^"))"
-  | Eselect(i, arg) -> "(select("^(print_arg arg)^",1,"^(soi i)^"))"
+     let s1 = get_size a1 in
+     ("(("^(print_arg a2)^" << "^(soi s1)^") + ("^(print_arg a1)^"))")
+  | Eslice(i1,i2,arg) -> p (select (print_arg arg) (i2-i1+1) i1)
+  | Eselect(i, arg) -> p (select (print_arg arg) 1 i)
   | Eram(addr_size, word_size, read_addr, write_enable, write_addr,
 	 data) -> "read(ram,"^(soi word_size)^","^(print_arg read_addr)^")"
   | Erom(addr_size, word_size, read_addr) -> "read(rom,"^(soi word_size)^","^(print_arg read_addr)^")"
@@ -67,8 +72,6 @@ let addvar reg x q =
       (j' := !j' + !k'; k' := t)
     else
       (i' := !i' + 1; j' := 0; k' := t);
-    print_int (!i');
-    print_int (!j');
     reginfo.vars <- Smap.add x {pos = !i'; ind = !j'; siz = t} reginfo.vars
 
   end
@@ -105,8 +108,9 @@ let update_ram f (Eram(r,w,_,we,wa,d)) = output_string f
   wa)^","^(print_arg d)^"); \n")
 
 
-let convert p niter romfile =
-  let f = open_out "sortie.cpp" in
+let convert name p niter romfile =
+  Printf.printf  "Traduction de la netlist en c++.. %!";
+  let f = open_out ("simulator_"^name^".cpp") in
   (* Sauvegarde des tailles des variables et écriture de l'entête du fichier *)
   Env.iter (addvar false) p.p_vars;
   output_string f " #include <iostream> \n #include \"bitop.h\" \n
@@ -114,7 +118,6 @@ let convert p niter romfile =
   (* On écrit les registres en variables globales et on regardes les
   instructions de ram *)
   List.iter (check_reg f) p.p_eqs;
-  print_int (!i');
   for p=0 to !i' do
     output_string f ("ull r_"^(soi p)^"(0);\n")
   done;
@@ -158,9 +161,6 @@ int main() {\n
     delete rom;}";
 
   flush f;
-  close_out f
-
+  close_out f;
+  Printf.printf "OK! \n"
 ;;
-
-let p = Netlist.read_file Sys.argv.(1) in
-convert (Scheduler.schedule p) (if (Array.length Sys.argv >= 3) then int_of_string Sys.argv.(2) else 42) (if (Array.length Sys.argv >= 4) then Sys.argv.(3) else "")

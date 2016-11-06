@@ -33,6 +33,7 @@ let read_exp exp  =
     | Ereg(_) -> []
 
 let schedule p =
+  print_string "Ordonnancement de la netlist.. ";
   let g = mk_graph () in
   List.iter (add_node g) p.p_inputs;
   List.iter (add_node g) p.p_outputs;
@@ -69,6 +70,7 @@ let schedule p =
 	 with
 	 | Pas_trouve -> buildlist q
     in
+    print_string "OK! \n";
     {p_eqs = buildlist (List.rev tri_topol);
      p_inputs = p.p_inputs;
      p_outputs = p.p_outputs;

@@ -3,6 +3,8 @@
 #include <iostream>
 #include <string>
 #include <cstdint>
+#include <fstream>
+#include <cstring>
 
 using namespace std;
 
@@ -35,6 +37,23 @@ void binoutput(ull val) {
   cout << endl;
 }
 
+ull* readromfile(string addr) {
+  ifstream entree("./mem.bin", fstream::binary);
+  entree.seekg (0, entree.end);
+  int size = entree.tellg();
+  entree.seekg (0, entree.beg);
+
+  char* buf = new char[size];
+  ull* buffout = new ull[size/8];
+
+  entree.read(buf, size);
+  entree.close();
+
+  memcpy (buffout, buf, size);
+
+  return buffout;
+}
+
 
 inline ull maskbit(const int ind, const int taille) {
   return (ULLONG_MAX)^(((1ULL << taille) - 1) << ind);
@@ -45,7 +64,7 @@ inline ull select(ull data,  const int taille,const int ind) {
   return ((data & masque) >> ind);
 }
 
-inline ull ramread(ull* ram, const unsigned char ws, ull ra) { // Taille < 64
+inline ull read(ull* ram, const unsigned char ws, ull ra) { // Taille < 64
   const char wpc = 64/ws;
 
   ull position = ra/wpc;

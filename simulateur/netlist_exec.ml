@@ -54,8 +54,8 @@ let translate_expr = function
      "(select("^(print_arg arg)^","^(soi (i2-i1+1))^","^(soi i1)^"))"
   | Eselect(i, arg) -> "(select("^(print_arg arg)^",1,"^(soi i)^"))"
   | Eram(addr_size, word_size, read_addr, write_enable, write_addr,
-	 data) -> "ramread(ram,"^(soi word_size)^","^(print_arg read_addr)^")"
-  | _ -> "" (* Reste Erom *)
+	 data) -> "read(ram,"^(soi word_size)^","^(print_arg read_addr)^")"
+  | Erom(addr_size, word_size, read_addr) -> "read(rom,"^(soi word_size)^","^(print_arg read_addr)^")"
 
 let addvar reg x q =
   let t = match q with
@@ -105,7 +105,7 @@ let update_ram f (Eram(r,w,_,we,wa,d)) = output_string f
   wa)^","^(print_arg d)^"); \n")
 
 
-let convert p =
+let convert p niter romfile =
   let f = open_out "sortie.cpp" in
   (* Sauvegarde des tailles des variables et écriture de l'entête du fichier *)
   Env.iter (addvar false) p.p_vars;
@@ -119,16 +119,17 @@ let convert p =
     output_string f ("ull r_"^(soi p)^"(0);\n")
   done;
   output_string f ("ull* ram = new ull["^(soi (!ramsize/8+1))^"]; \n");
+  output_string f ("ull* rom");
 
   (* Écriture de la fonction cycle et de ses paramètres*)
-  output_string f "void cycle(int no";
-  List.iter (fun x -> (output_string f (", unsigned long long int
-  "^x))) p.p_inputs;
-  output_string f ") {\n";
+  output_string f "void cycle(int no) {\n";
+
+  List.iter (fun x -> output_string f ("ull "^x^";\n")) p.p_inputs;
+  List.iter (fun x -> output_string f ("cout << no << \": "^x^" ? \"; "^x^"=bininput<"^(soi(get_size(Avar x)))^">();\n")) p.p_inputs;
 
 
   for p=0 to !i do
-    output_string f ("unsigned long long int b_"^(soi p)^"(0);\n")
+    output_string f ("ull b_"^(soi p)^"(0);\n")
   done;
 
   List.iter (fun x -> let d = Smap.find x varinfo.vars in
@@ -141,20 +142,19 @@ b_"^(soi d.pos)^" |= ("^x^" << "^(soi d.ind)^");\n"))) p.p_inputs;
   Smap.iter (update_reg f) reginfo.vars;
   List.iter (update_ram f) !ramop;
   (* Affichage des sorties *)
-  List.iter (fun x -> (output_string f ("cout << \""^x^":\";
+  List.iter (fun x -> (output_string f ("cout << no << \": "^x^":\";
     binoutput<"^(soi (get_size(Avar x)))^">("^(print_arg (Avar x))^"); \n"))) p.p_outputs;
 
-  output_string f "\n return;\n}\n
+  output_string f ("\n return;\n}\n
 int main() {\n
-while(1) {\n";
+  rom = readromfile(\""^romfile^"\"); \n
+  for(int i=0;i<"^(soi niter)^";i++) {\n");
 
   (* Dans une boucle infinie on exécute les cycles en demandant à *)
   (* chaque fois l'entrée *)
-  List.iter (fun x -> output_string f ("unsigned long long int _"^x^";\n")) p.p_inputs;
-  List.iter (fun x -> output_string f ("cout << \""^x^" ? \"; _"^x^"=bininput<"^(soi(get_size(Avar x)))^">();")) p.p_inputs;
-  output_string f "cycle(0";
-  List.iter (fun x -> output_string f (",_"^x)) p.p_inputs;
-  output_string f ");}}";
+  output_string f "cycle(i);}\n
+  delete ram;
+  delete rom;}";
 
   flush f;
   close_out f
@@ -162,4 +162,4 @@ while(1) {\n";
 ;;
 
 let p = Netlist.read_file Sys.argv.(1) in
-convert(Scheduler.schedule p)
+convert (Scheduler.schedule p) (if (Array.length Sys.argv >= 3) then int_of_string Sys.argv.(2) else 42) (if (Array.length Sys.argv >= 4) then Sys.argv.(3) else "")
